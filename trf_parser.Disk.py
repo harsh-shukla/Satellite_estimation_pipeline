@@ -242,12 +242,11 @@ def parallel_trf_mod(input_file_gz, output_bed, num_threads, trf_mod_executable,
 
     # --- Input Validation ---
     # (Same as before)
-    if not os.path.exists(trf_mod_executable) or not os.path.isfile(trf_mod_executable):
-        print(f"Error: TRF-mod executable not found or is not a file at '{trf_mod_executable}'", file=sys.stderr)
+    resolved_trf_mod = shutil.which(trf_mod_executable)
+    if not resolved_trf_mod:
+        print(f"Error: TRF-mod executable '{trf_mod_executable}' not found in PATH or is not an executable file.", file=sys.stderr)
         sys.exit(1)
-    if not os.access(trf_mod_executable, os.X_OK):
-         print(f"Error: TRF-mod file is not executable: '{trf_mod_executable}'", file=sys.stderr)
-         sys.exit(1)
+    trf_mod_executable = resolved_trf_mod
     if not os.path.exists(input_file_gz):
         print(f"Error: Input file not found at '{input_file_gz}'", file=sys.stderr)
         sys.exit(1)
