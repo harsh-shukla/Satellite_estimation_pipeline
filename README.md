@@ -86,12 +86,17 @@ Singularity can seamlessly pull and convert Docker images from GHCR. This is the
 singularity build satellite_pipeline.sif docker://ghcr.io/harsh-shukla/satellite_estimation_pipeline:latest
 
 # Run the pipeline
-# Singularity automatically binds your current directory and home directory by default
-singularity run satellite_pipeline.sif \
-  -i my_input.fastq.gz \
-  -o my_satellite_output \
-  -t 32 \
-  --min-align 50
+ SEQ_DATA=/path/to/fastq.gz 
+ 
+ singularity run --bind $(dirname $SEQ_DATA) \
+    satellite_pipeline.sif \
+    -i $SEQ_DATA \
+    -o satellite \
+    -t 8 \
+    --trf-options '-p 15 -s 100' \
+    --min-align 50 \
+    --min-ratio 0.0001
+      
 ```
 
 ## Outputs
