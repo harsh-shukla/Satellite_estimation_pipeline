@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y \
 # Clone and build TRF-mod from source
 RUN git clone https://github.com/lh3/TRF-mod.git /tmp/TRF-mod && \
     cd /tmp/TRF-mod && \
-    make && \
+    make -f compile.mak && \
     cp trf-mod /usr/local/bin/ && \
     rm -rf /tmp/TRF-mod
 
