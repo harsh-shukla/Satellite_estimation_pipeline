@@ -4,8 +4,11 @@ This repository contains a parallelized pipeline for estimating satellite and ta
 
 ## Prerequisites
 
+If running locally:
 * **TRF-mod**: You must have the [TRF-mod](https://github.com/lh3/TRF-mod) executable installed on your system or accessible via your HPC.
 * **Python 3**: The scripts require standard Python 3. No external libraries (like `pandas` or `Biopython`) are required. This ensures the pipeline remains lightweight and operates out-of-the-box even on restrictive clusters.
+
+Alternatively, you can run the pipeline without installing any prerequisites by using the provided **Docker** or **Singularity** container (see the Container Usage section below).
 
 ## Pipeline Components
 
@@ -35,33 +38,68 @@ An HTML reporting tool.
 - **Process**: Filters out extremely low abundance satellites (by default, `< 0.00001` or 0.001%) to declutter the final view, and sorts the remaining satellites by abundance. It generates a standalone HTML document encapsulating the data.
 - **Output**: An interactive `satellite_report.html` page embedded with DataTables, enabling searching, sorting, and pagination directly in any modern web browser.
 
-## Usage Guide
+## Standalone Usage
 
-You can run the full pipeline sequentially using the provided `run_wrapper.sh` script. Adjust the paths to point to your specific FASTQ/FASTA data and your `TRF-mod` binary location.
-
-Example workflow (as seen in `run_wrapper.sh`):
+You can run the full pipeline sequentially using the provided `run_wrapper.sh` script. The wrapper script has been updated to accept command-line arguments to easily configure the underlying python scripts.
 
 ```bash
-# 1. Run parallel TRF-mod (Modify -t to your desired thread count)
-python3 trf_parser.Disk.py -i input.fastq.gz -o satellite.bed -e /path/to/trf-mod -t 32 --trf_options "-p 15 -s 100"
+./run_wrapper.sh -i input.fastq.gz [options]
 
-# 2. Resolve overlaps (minimum alignment length of 50bp)
-python3 resolve_overlap_rearrange.py -i satellite.bed -o satellite.FILTNORM.bed --min-alignment-length 50
+Options:
+  -i, --input            Input sequence file (FASTQ/FASTA, gzipped)
+  -o, --prefix           Prefix for all output files (default: satellite)
+  -t, --threads          Number of threads to use for TRF (default: 1)
+  --trf-options          Options string to pass to TRF-mod (default: '-p 15 -s 100')
+  --trf-bin              Path to TRF-mod executable (default: 'trf-mod' assuming in PATH)
+  --min-align            Minimum alignment length for resolving overlaps (default: 50)
+  --min-ratio            Minimum TotalRatioCombined to display in HTML report (default: 0.00001)
+```
 
-# 3. Summarize content
-# Note: The total-bp-sequenced is read dynamically from the file outputted by step 1
-python3 summarize_trf_content.py -i satellite.FILTNORM.bed -o satellite_summary.tsv --total-bp-sequenced satellite.bed.total_bp
+Example workflow:
+```bash
+./run_wrapper.sh -i data/ISO1_hifi_099.fastq.gz -t 32 --min-align 50 --trf-bin /path/to/trf-mod
+```
 
-# 4. Generate Interactive HTML report
-python3 generate_html_report.py -i satellite_summary.tsv -o satellite_report.html
+## Docker / Singularity Container Usage
+
+A Docker image containing Python, TRF-mod, and all the scripts is automatically built and hosted on the GitHub Container Registry (GHCR). This is highly recommended for reproducibility and running on HPC environments.
+
+### Using Docker
+
+If you have Docker installed, you can run the pipeline directly. Remember to mount your data directory using `-v` so the container can access your input files and write the outputs.
+
+```bash
+# Example using Docker
+docker run --rm -v /path/to/your/data:/data \
+  ghcr.io/harsh-shukla/satellite_estimation_pipeline:latest \
+  -i /data/input.fastq.gz \
+  -o /data/satellite_output \
+  -t 32
+```
+
+### Using Singularity / Apptainer (HPC Environments)
+
+Singularity can seamlessly pull and convert Docker images from GHCR. This is the preferred method on most computing clusters.
+
+```bash
+# Pull the image and convert it to a Singularity Image Format (.sif)
+singularity build satellite_pipeline.sif docker://ghcr.io/harsh-shukla/satellite_estimation_pipeline:latest
+
+# Run the pipeline
+# Singularity automatically binds your current directory and home directory by default
+singularity run satellite_pipeline.sif \
+  -i my_input.fastq.gz \
+  -o my_satellite_output \
+  -t 32 \
+  --min-align 50
 ```
 
 ## Outputs
 
 After a complete, successful run, your directory will contain:
-* `satellite.bed`: Raw concatenated TRF output.
-* `satellite.bed.total_bp`: Text file containing the overall total base pairs sequenced in the input dataset.
-* `satellite.FILTNORM.bed`: Filtered BED file with overlaps resolved.
+* `[prefix].bed`: Raw concatenated TRF output.
+* `[prefix].bed.total_bp`: Text file containing the overall total base pairs sequenced in the input dataset.
+* `[prefix].FILTNORM.bed`: Filtered BED file with overlaps resolved.
 * `Discarded_overlaps.txt`: Log of records discarded during overlap resolution.
-* `satellite_summary.tsv`: Tab-separated summary file detailing the abundance of each canonical motif.
-* **`satellite_report.html`**: An interactive HTML visualization of the summary file for easy inspection and reporting.
+* `[prefix]_summary.tsv`: Tab-separated summary file detailing the abundance of each canonical motif.
+* **`[prefix]_report.html`**: An interactive HTML visualization of the summary file for easy inspection and reporting.
